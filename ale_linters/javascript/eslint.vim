@@ -60,6 +60,8 @@ function! ale_linters#javascript#eslint#Handle(buffer, lines) abort
             let l:type = split(l:match[4], '/')[0]
             let l:text .= ' [' . l:match[4] . ']'
         endif
+        " Stian's change: Make all errors into warnings (for nicer formatting)
+        let l:type = 'Warning'
 
         " vcol is Needed to indicate that the column is a character.
         call add(l:output, {
