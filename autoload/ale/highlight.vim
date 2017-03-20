@@ -22,22 +22,46 @@ function! ale#highlight#UnqueueHighlights(buffer) abort
     endif
 endfunction
 
-function! s:RemoveOldHighlights() abort
+function! s:GetALEMatches() abort
+    let l:list = []
+
     for l:match in getmatches()
         if l:match['group'] ==# 'ALEError' || l:match['group'] ==# 'ALEWarning'
-            call matchdelete(l:match['id'])
+            call add(l:list, l:match)
         endif
     endfor
+
+    return l:list
+endfunction
+
+function! s:GetCurrentMatchIDs(loclist) abort
+    let l:current_id_map = {}
+
+    for l:item in a:loclist
+        if has_key(l:item, 'match_id')
+            let l:current_id_map[l:item.match_id] = 1
+        endif
+    endfor
+
+    return l:current_id_map
 endfunction
 
 function! ale#highlight#UpdateHighlights() abort
     let l:buffer = bufnr('%')
     let l:has_new_items = has_key(s:buffer_highlights, l:buffer)
     let l:loclist = l:has_new_items ? remove(s:buffer_highlights, l:buffer) : []
+    let l:current_id_map = s:GetCurrentMatchIDs(l:loclist)
 
     if l:has_new_items || !g:ale_enabled
-        call s:RemoveOldHighlights()
+        for l:match in s:GetALEMatches()
+            if !has_key(l:current_id_map, l:match.id)
+                call matchdelete(l:match.id)
+            endif
+        endfor
     endif
+
+    " Remove anything with a current match_id
+    call filter(l:loclist, '!has_key(v:val, ''match_id'')')
 
     if l:has_new_items
         for l:item in l:loclist
@@ -46,7 +70,10 @@ function! ale#highlight#UpdateHighlights() abort
             let l:line = l:item.lnum
             let l:size = 1
 
-            call matchaddpos(l:group, [[l:line, l:col, l:size]])
+            " Rememeber the match ID for the item.
+            " This ID will be used to preserve loclist items which are set
+            " many times.
+            let l:item.match_id = matchaddpos(l:group, [[l:line, l:col, l:size]])
         endfor
     endif
 endfunction
@@ -64,7 +91,7 @@ function! ale#highlight#SetHighlights(buffer, loclist) abort
         "
         " We'll filter the loclist down to items we can set now.
         let s:buffer_highlights[a:buffer] = filter(
-        \   deepcopy(a:loclist),
+        \   copy(a:loclist),
         \   'v:val.bufnr == a:buffer && v:val.col > 0'
         \)
 

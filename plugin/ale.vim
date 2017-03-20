@@ -32,6 +32,9 @@ if !s:has_features
     finish
 endif
 
+" Add the after directory to the runtimepath
+let &runtimepath .= ',' . expand('<sfile>:p:h:h') . '/after'
+
 " Set this flag so that other plugins can use it, like airline.
 let g:loaded_ale = 1
 
@@ -40,6 +43,9 @@ let g:loaded_ale = 1
 if has('unix') && empty($TMPDIR)
     let $TMPDIR = '/tmp'
 endif
+
+" This flag can be set to 0 to disable emitting conflict warnings.
+let g:ale_emit_conflict_warnings = get(g:, 'ale_emit_conflict_warnings', 1)
 
 " This global variable is used internally by ALE for tracking information for
 " each buffer which linters are being run against.
@@ -151,14 +157,14 @@ function! s:ALEInitAuGroups() abort
     augroup ALERunOnEnterGroup
         autocmd!
         if g:ale_enabled && g:ale_lint_on_enter
-            autocmd BufEnter,BufRead * call ale#Queue(300)
+            autocmd BufEnter,BufRead * call ale#Queue(300, 1)
         endif
     augroup END
 
     augroup ALERunOnSaveGroup
         autocmd!
         if g:ale_enabled && g:ale_lint_on_save
-            autocmd BufWrite * call ale#Queue(0)
+            autocmd BufWrite * call ale#Queue(0, 1)
         endif
     augroup END
 
@@ -166,6 +172,10 @@ function! s:ALEInitAuGroups() abort
         autocmd!
         if g:ale_enabled && g:ale_echo_cursor
             autocmd CursorMoved,CursorHold * call ale#cursor#EchoCursorWarningWithDelay()
+            " Look for a warning to echo as soon as we leave Insert mode.
+            " The script's position variable used when moving the cursor will
+            " not be changed here.
+            autocmd InsertLeave * call ale#cursor#EchoCursorWarning()
         endif
     augroup END
 
@@ -184,7 +194,9 @@ function! s:ALEToggle() abort
         " Lint immediately
         call ale#Queue(0)
     else
-        for l:buffer in keys(g:ale_buffer_info)
+        " Make sure the buffer number is a number, not a string,
+        " otherwise things can go wrong.
+        for l:buffer in map(keys(g:ale_buffer_info), 'str2nr(v:val)')
             " Stop jobs and delete stored buffer data
             call ale#cleanup#Buffer(l:buffer)
             " Clear signs, loclist, quicklist
@@ -208,9 +220,15 @@ command! ALEPreviousWrap :call ale#loclist_jumping#Jump('before', 1)
 command! ALENext :call ale#loclist_jumping#Jump('after', 0)
 command! ALENextWrap :call ale#loclist_jumping#Jump('after', 1)
 
-command! ALEToggle :call s:ALEToggle()
+" A command for showing error details.
+command! ALEDetail :call ale#cursor#ShowCursorDetail()
 
-" Define command to get information about current filetype.
+" A command for turning ALE on or off.
+command! ALEToggle :call s:ALEToggle()
+" A command for linting manually.
+command! ALELint :call ale#Queue(0)
+
+" Define a command to get information about current filetype.
 command! ALEInfo :call ale#debugging#Info()
 " The same, but copy output to your clipboard.
 command! ALEInfoToClipboard :call ale#debugging#InfoToClipboard()
@@ -221,6 +239,8 @@ nnoremap <silent> <Plug>(ale_previous_wrap) :ALEPreviousWrap<Return>
 nnoremap <silent> <Plug>(ale_next) :ALENext<Return>
 nnoremap <silent> <Plug>(ale_next_wrap) :ALENextWrap<Return>
 nnoremap <silent> <Plug>(ale_toggle) :ALEToggle<Return>
+nnoremap <silent> <Plug>(ale_lint) :ALELint<Return>
+nnoremap <silent> <Plug>(ale_detail) :ALEDetail<Return>
 
 " Housekeeping
 

@@ -2,7 +2,7 @@ SHELL := /usr/bin/env bash
 IMAGE ?= w0rp/ale
 CURRENT_IMAGE_ID = 107e4efc4267
 DOCKER_FLAGS = --rm -v $(PWD):/testplugin -v $(PWD)/test:/home "$(IMAGE)"
-tests = test/*
+tests = test/*.vader test/*/*.vader test/*/*/*.vader test/*/*/*/*.vader
 
 test-setup:
 	docker images -q w0rp/ale | grep ^$(CURRENT_IMAGE_ID) > /dev/null || \

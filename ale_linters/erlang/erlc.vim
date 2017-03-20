@@ -3,7 +3,9 @@
 let g:ale_erlang_erlc_options = get(g:, 'ale_erlang_erlc_options', '')
 
 function! ale_linters#erlang#erlc#GetCommand(buffer) abort
-    return 'erlc ' . g:ale_erlang_erlc_options . ' %t'
+    let l:output_file = tempname()
+    call ale#engine#ManageFile(a:buffer, l:output_file)
+    return 'erlc -o ' . fnameescape(l:output_file) . ' ' . g:ale_erlang_erlc_options . ' %t'
 endfunction
 
 function! ale_linters#erlang#erlc#Handle(buffer, lines) abort
@@ -43,11 +45,9 @@ function! ale_linters#erlang#erlc#Handle(buffer, lines) abort
             call add(l:output, {
             \   'bufnr': a:buffer,
             \   'lnum': 0,
-            \   'vcol': 0,
             \   'col': 0,
             \   'type': 'E',
             \   'text': l:match_parse_transform[0],
-            \   'nr': -1,
             \})
 
             continue
@@ -77,11 +77,9 @@ function! ale_linters#erlang#erlc#Handle(buffer, lines) abort
         call add(l:output, {
         \   'bufnr': a:buffer,
         \   'lnum': l:line,
-        \   'vcol': 0,
         \   'col': 0,
         \   'type': l:type,
         \   'text': l:text,
-        \   'nr': -1,
         \})
     endfor
 

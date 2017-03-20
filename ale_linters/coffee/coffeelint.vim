@@ -21,7 +21,7 @@ function! ale_linters#coffee#coffeelint#Handle(buffer, lines) abort
     " stdin,14,,error,Throwing strings is forbidden
     "
     " Note that we currently ignore lineNumberEnd for multiline errors
-    let l:pattern = 'stdin,\(\d\+\),\(\d*\),\(.\+\),\(.\+\)'
+    let l:pattern = 'stdin,\(\d\+\),\(\d*\),\(.\{-1,}\),\(.\+\)'
     let l:output = []
 
     for l:line in a:lines
@@ -40,11 +40,9 @@ function! ale_linters#coffee#coffeelint#Handle(buffer, lines) abort
         call add(l:output, {
         \   'bufnr': a:buffer,
         \   'lnum': l:line,
-        \   'vcol': 0,
         \   'col': l:column,
         \   'text': l:text,
         \   'type': l:type,
-        \   'nr': -1,
         \})
     endfor
 

@@ -11,11 +11,20 @@ function! ale#list#IsQuickfixOpen() abort
     return 0
 endfunction
 
-function! ale#list#SetLists(loclist) abort
+function! ale#list#SetLists(buffer, loclist) abort
     if g:ale_set_quickfix
         call setqflist(a:loclist)
     elseif g:ale_set_loclist
-        call setloclist(0, a:loclist)
+        " If windows support is off, bufwinid() may not exist.
+        if exists('*bufwinid')
+            " Set the results on the window for the buffer.
+            call setloclist(bufwinid(str2nr(a:buffer)), a:loclist)
+        else
+            " Set the results in the current window.
+            " This may not be the same window we ran the linters for, but
+            " it's better than nothing.
+            call setloclist(0, a:loclist)
+        endif
     endif
 
     " If we don't auto-open lists, bail out here.

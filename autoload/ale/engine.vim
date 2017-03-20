@@ -28,6 +28,8 @@ function! ale#engine#InitBufferInfo(buffer) abort
     if !has_key(g:ale_buffer_info, a:buffer)
         " job_list will hold the list of jobs
         " loclist holds the loclist items after all jobs have completed.
+        " lint_file_loclist holds items from the last run including linters
+        "   which use the lint_file option.
         " new_loclist holds loclist items while jobs are being run.
         " temporary_file_list holds temporary files to be cleaned up
         " temporary_directory_list holds temporary directories to be cleaned up
@@ -35,6 +37,7 @@ function! ale#engine#InitBufferInfo(buffer) abort
         let g:ale_buffer_info[a:buffer] = {
         \   'job_list': [],
         \   'loclist': [],
+        \   'lint_file_loclist': [],
         \   'new_loclist': [],
         \   'temporary_file_list': [],
         \   'temporary_directory_list': [],
@@ -53,7 +56,6 @@ endfunction
 
 function! ale#engine#ClearJob(job) abort
     let l:job_id = s:GetJobID(a:job)
-    let l:linter = s:job_info_map[l:job_id].linter
 
     if has('nvim')
         call jobstop(a:job)
@@ -219,12 +221,9 @@ function! s:HandleExit(job) abort
 
     let l:linter_loclist = ale#util#GetFunction(l:linter.callback)(l:buffer, l:output)
 
-    " Make some adjustments to the loclists to fix common problems.
-    call s:FixLocList(l:buffer, l:linter_loclist)
-
-    for l:item in l:linter_loclist
-        let l:item.linter_name = l:linter.name
-    endfor
+    " Make some adjustments to the loclists to fix common problems, and also
+    " to set default values for loclist items.
+    let l:linter_loclist = ale#engine#FixLocList(l:buffer, l:linter, l:linter_loclist)
 
     " Add the loclist items from the linter.
     call extend(g:ale_buffer_info[l:buffer].new_loclist, l:linter_loclist)
@@ -255,12 +254,13 @@ function! s:HandleExit(job) abort
 endfunction
 
 function! ale#engine#SetResults(buffer, loclist) abort
-    if g:ale_set_quickfix || g:ale_set_loclist
-        call ale#list#SetLists(a:loclist)
-    endif
-
+    " Set signs first. This could potentially fix some line numbers.
     if g:ale_set_signs
         call ale#sign#SetSigns(a:buffer, a:loclist)
+    endif
+
+    if g:ale_set_quickfix || g:ale_set_loclist
+        call ale#list#SetLists(a:buffer, a:loclist)
     endif
 
     if exists('*ale#statusline#Update')
@@ -270,6 +270,12 @@ function! ale#engine#SetResults(buffer, loclist) abort
 
     if g:ale_set_highlights
         call ale#highlight#SetHighlights(a:buffer, a:loclist)
+    endif
+
+    if g:ale_echo_cursor
+        " Try and echo the warning now.
+        " This will only do something meaningful if we're in normal mode.
+        call ale#cursor#EchoCursorWarning()
     endif
 endfunction
 
@@ -303,20 +309,54 @@ function! s:HandleExitStatusVim(job, exit_code) abort
     call s:SetExitCode(a:job, a:exit_code)
 endfunction
 
-function! s:FixLocList(buffer, loclist) abort
+function! ale#engine#FixLocList(buffer, linter, loclist) abort
+    let l:new_loclist = []
+
     " Some errors have line numbers beyond the end of the file,
     " so we need to adjust them so they set the error at the last line
     " of the file instead.
     let l:last_line_number = ale#util#GetLineCount(a:buffer)
 
-    for l:item in a:loclist
+    for l:old_item in a:loclist
+        " Copy the loclist item with some default values and corrections.
+        "
+        " line and column numbers will be converted to numbers.
+        " The buffer will default to the buffer being checked.
+        " The vcol setting will default to 0, a byte index.
+        " The error type will default to 'E' for errors.
+        " The error number will default to -1.
+        "
+        " The line number and text are the only required keys.
+        "
+        " The linter_name will be set on the errors so it can be used in
+        " output, filtering, etc..
+        let l:item = {
+        \   'text': l:old_item.text,
+        \   'lnum': str2nr(l:old_item.lnum),
+        \   'col': str2nr(get(l:old_item, 'col', 0)),
+        \   'bufnr': get(l:old_item, 'bufnr', a:buffer),
+        \   'vcol': get(l:old_item, 'vcol', 0),
+        \   'type': get(l:old_item, 'type', 'E'),
+        \   'nr': get(l:old_item, 'nr', -1),
+        \   'linter_name': a:linter.name,
+        \}
+
+        if has_key(l:old_item, 'detail')
+            let l:item.detail = l:old_item.detail
+        endif
+
         if l:item.lnum == 0
             " When errors appear at line 0, put them at line 1 instead.
             let l:item.lnum = 1
         elseif l:item.lnum > l:last_line_number
+            " When errors go beyond the end of the file, put them at the end.
             let l:item.lnum = l:last_line_number
         endif
+
+        call add(l:new_loclist, l:item)
     endfor
+
+    return l:new_loclist
 endfunction
 
 " Given part of a command, replace any % with %%, so that no characters in
@@ -586,7 +626,15 @@ endfunction
 function! ale#engine#Invoke(buffer, linter) abort
     " Stop previous jobs for the same linter.
     call s:StopPreviousJobs(a:buffer, a:linter)
-    call s:InvokeChain(a:buffer, a:linter, 0, [])
+
+    let l:executable = has_key(a:linter, 'executable_callback')
+    \   ? ale#util#GetFunction(a:linter.executable_callback)(a:buffer)
+    \   : a:linter.executable
+
+    " Run this program if it can be executed.
+    if executable(l:executable)
+        call s:InvokeChain(a:buffer, a:linter, 0, [])
+    endif
 endfunction
 
 " Given a buffer number, return the warnings and errors for a given buffer.
@@ -605,7 +653,7 @@ endfunction
 " The time taken will be a very rough approximation, and more time may be
 " permitted than is specified.
 function! ale#engine#WaitForJobs(deadline) abort
-    let l:start_time = system('date +%s%3N') + 0
+    let l:start_time = ale#util#ClockMilliseconds()
 
     if l:start_time == 0
         throw 'Failed to read milliseconds from the clock!'
@@ -625,7 +673,7 @@ function! ale#engine#WaitForJobs(deadline) abort
 
         for l:job in l:job_list
             if job_status(l:job) ==# 'run'
-                let l:now = system('date +%s%3N') + 0
+                let l:now = ale#util#ClockMilliseconds()
 
                 if l:now - l:start_time > a:deadline
                     " Stop waiting after a timeout, so we don't wait forever.
@@ -658,7 +706,7 @@ function! ale#engine#WaitForJobs(deadline) abort
 
     if l:has_new_jobs
         " We have to wait more. Offset the timeout by the time taken so far.
-        let l:now = system('date +%s%3N') + 0
+        let l:now = ale#util#ClockMilliseconds()
         let l:new_deadline = a:deadline - (l:now - l:start_time)
 
         if l:new_deadline <= 0

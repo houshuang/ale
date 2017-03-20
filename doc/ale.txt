@@ -41,6 +41,8 @@ CONTENTS                                                         *ale-contents*
     4.29. xo..............................|ale-linter-options-xo|
     4.30. javac...........................|ale-linter-options-javac|
     4.31. yamllint........................|ale-linter-options-yamllint|
+    4.32. cmakelint.......................|ale-linter-options-cmakelint|
+    4.33. perl-perl.......................|ale-linter-options-perl-perl|
   5. Linter Integration Notes.............|ale-linter-integration|
     5.1.  merlin..........................|ale-linter-integration-ocaml-merlin|
     5.2. rust.............................|ale-integration-rust|
@@ -73,12 +75,14 @@ ALE supports the following key features:
 The following languages and tools are supported.
 
 * Ansible: 'ansible-lint'
+* Asciidoc: 'proselint'
 * Bash: 'shell' (-n flag), 'shellcheck'
 * Bourne Shell: 'shell' (-n flag), 'shellcheck'
 * C: 'cppcheck', 'gcc', 'clang'
 * C++ (filetype cpp): 'clang', 'clangtidy', 'cppcheck', 'gcc'
 * C#: 'mcs'
 * Chef: 'foodcritic'
+* CMake: 'cmakelint'
 * CoffeeScript: 'coffee', 'coffelint'
 * CSS: 'csslint', 'stylelint'
 * Cython (pyrex filetype): 'cython'
@@ -89,33 +93,43 @@ The following languages and tools are supported.
 * Erlang: 'erlc'
 * Fortran: 'gcc'
 * Go: 'gofmt -e', 'go vet', 'golint', 'go build'
+* Haml: 'hamllint'
 * Haskell: 'ghc', 'hlint'
-* HTML: 'HTMLHint', 'tidy'
+* HTML: 'HTMLHint', 'proselint', 'tidy'
 * Java: 'javac'
 * JavaScript: 'eslint', 'jscs', 'jshint', 'flow', 'xo'
 * JSON: 'jsonlint'
 * LaTeX: 'chktex', 'lacheck'
 * Lua: 'luacheck'
-* Markdown: 'mdl'
+* Markdown: 'mdl', 'proselint'
 * MATLAB: 'mlint'
+* nim: 'nim check'
+* nix: 'nix-instantiate'
+* nroff: 'proselint'
 * OCaml: 'merlin' (see |ale-linter-integration-ocaml-merlin|)
 * Perl: 'perl' (-c flag), 'perlcritic'
 * PHP: 'hack', 'php' (-l flag), 'phpcs', 'phpmd'
+* Pod: 'proselint'
 * Pug: 'pug-lint'
 * Puppet: 'puppet', 'puppet-lint'
 * Python: 'flake8', 'mypy', 'pylint'
+* reStructuredText: 'proselint'
 * Rust: 'rustc' (see |ale-integration-rust|)
 * Ruby: 'rubocop'
 * SASS: 'sasslint', 'stylelint'
 * SCSS: 'sasslint', 'scsslint', 'stylelint'
 * Scala: 'scalac'
+* Slim: 'slim-lint'
 * SML: 'smlnj'
 * Swift: 'swiftlint'
 * Tex: 'proselint'
+* Texinfo: 'proselint'
 * Text: 'proselint'
 * TypeScript: 'tslint', 'typecheck'
 * Verilog: 'iverilog', 'verilator'
 * Vim: 'vint'
+* Vim help: 'proselint'
+* XHTML: 'proselint'
 * YAML: 'yamllint'
 
 ===============================================================================
@@ -175,6 +189,15 @@ g:ale_echo_msg_warning_str                         *g:ale_echo_msg_warning_str*
   The string used for warning severity in the echoed message.
   Note |`g:ale_echo_cursor`| should be set to 1
   Note |`g:ale_echo_msg_format`| should contain the `%severity%` handler
+
+
+g:ale_emit_conflict_warnings                     *g:ale_emit_conflict_warnings*
+
+  Type: |Number|
+  Default: `1`
+
+  When set to `0`, ALE will not emit any warnings on startup about conflicting
+  plugins. ALE will probably not work if other linting plugins are installed.
 
 
 g:ale_enabled                                                   *g:ale_enabled*
@@ -757,7 +780,7 @@ g:ale_c_clang_options                                   *g:ale_c_clang_options*
 g:ale_cpp_clang_options                               *g:ale_cpp_clang_options*
 
   Type: |String|
-  Default: `'-std=c11 -Wall'`
+  Default: `'-std=c++14 -Wall'`
 
   This variable can be changed to modify flags given to clang.
 
@@ -987,7 +1010,7 @@ g:ale_php_phpmd_ruleset                           *g:ale_php_phpmd_ruleset*
   Type: |String|
   Default: 'cleancode,codesize,controversial,design,naming,unusedcode'
 
-  This variable controls the ruleset used by phpmd.  Default is to use all of
+  This variable controls the ruleset used by phpmd. Default is to use all of
   the available phpmd rulesets
 
 ------------------------------------------------------------------------------
@@ -1061,6 +1084,42 @@ g:ale_yaml_yamllint_options                       *g:ale_yaml_yamllint_options*
 
   This variable can be set to pass additional options to yamllint.
 
+------------------------------------------------------------------------------
+4.32. cmakelint                                  *ale-linter-options-cmakelint*
+
+g:ale_cmake_cmakelint_exectuable             *g:ale_cmake_cmakelint_executable*
+
+  Type: |String|
+  Default: `'cmakelint'`
+
+  This variable can be set to change the path the cmakelint.
+
+g:ale_cmake_cmakelint_options                   *g:ale_cmake_cmakelint_options*
+
+  Type: |String|
+  Default: `''`
+
+  This variable can be set to pass additional options to cmakelint.
+
+-------------------------------------------------------------------------------
+4.33. perl-perl                                  *ale-linter-options-perl-perl*
+
+g:ale_perl_perl_executable                         *g:ale_perl_perl_executable*
+
+  Type: |String|
+  Default: `'perl'`
+
+  This variable can be changed to modify the executable used for linting perl.
+
+
+g:ale_perl_perl_options                               *g:ale_perl_perl_options*
+
+  Type: |String|
+  Default: `'-X -c -Mwarnings -Ilib'`
+
+  This variable can be changed to alter the command-line arguments to the perl
+  invocation.
+
 ===============================================================================
 5. Linter Integration Notes                            *ale-linter-integration*
 
@@ -1104,13 +1163,23 @@ Some linters may have requirements for some other plugins being installed.
 ===============================================================================
 6. Commands/Keybinds                                             *ale-commands*
 
+ALELint                                                               *ALELint*
+
+  Run ALE once for the current buffer. This command can be used to run ALE
+  manually, instead of automatically, if desired.
+
+  A plug mapping `<Plug>(ale_lint)` is defined for this command.
+
+
 ALEPrevious                                                       *ALEPrevious*
 ALEPreviousWrap                                               *ALEPreviousWrap*
 ALENext                                                               *ALENext*
 ALENextWrap                                                       *ALENextWrap*
                                                       *ale-navigation-commands*
 
-  Move between warnings or errors in a buffer.
+  Move between warnings or errors in a buffer. ALE will only navigate between
+  the errors or warnings it generated, even if both |g:ale_set_quickfix|
+  and |g:ale_set_loclist| are set to `0`.
 
   `ALEPrevious` and `ALENext` will stop at the top and bottom of a file, while
   `ALEPreviousWrap` and `ALENextWrap` will wrap around the file to find
@@ -1139,14 +1208,28 @@ ALEToggle                                                           *ALEToggle*
   quickfix items, signs, current jobs, etc. Calling this option will change
   the |g:ale_enabled| variable.
 
+
+ALEDetail                                                           *ALEDetail*
+
+  Show the full linter message for the current line. This will only have an
+  effect on lines that contain a linter message.
+
+  A plug mapping `<Plug>(ale_detail)` is defined for this command.
+
 ===============================================================================
 7. API                                                                *ale-api*
 
-ale#Queue(delay)                                                  *ale#Queue()*
+ale#Queue(delay, [run_file_linters])                              *ale#Queue()*
+
   Run linters for the current buffer, based on the filetype of the buffer,
   with a given `delay`. A `delay` of `0` will run the linters immediately.
   The linters will always be run in the background. Calling this function
   again from the same buffer
+
+  An optional `run_file_linters` argument can be given. If `run_file_linters`
+  is `0`, then no linters where the `lint_file` option is set to `1` will be
+  run. If `run_file_linters` is set to `1`, then all linters for the current
+  file will be run. `run_file_linters` defaults to `0`.
 
 
 ale#engine#EscapeCommandPart(command_part)     *ale#engine#EscapeCommandPart()*
@@ -1219,8 +1302,28 @@ ale#linter#Define(filetype, linter)                       *ale#linter#Define()*
 
                          This argument is required.
 
+                         The keys for each item in the List will be handled in
+                         the following manner:
+
+                         `text` - This error message is required.
+                         `lnum` - The line number is required. Any strings
+                           will be automatically converted to numbers by
+                           using `str2nr()`.
+
+                           Line 0 will be moved to line 1, and lines beyond
+                           the end of the file will be moved to the end.
+                         `col` - The column number is optional and will
+                           default to `0`. Any strings will be automatically
+                           coverted to number using `str2nr()`.
+                         `bufnr` - The buffer number should match the buffer
+                           being checked, and this value will default to
+                           the buffer being checked.
+                         `vcol` - Defaults to `0`.
+                         `type` - Defaults to `'E'`.
+                         `nr` - Defaults to `-1`.
+
   `executable`             A |String| naming the executable itself which
-                         will be run.  This value will be used to check if the
+                         will be run. This value will be used to check if the
                          program requested is installed or not.
 
                          Either this or the `executable_callback` argument
@@ -1324,7 +1427,7 @@ ale#linter#Define(filetype, linter)                       *ale#linter#Define()*
 <
   Any substring `%t` will be replaced with a path to a temporary file. Merely
   adding `%t` will cause ALE to create a temporary file containing the
-  contents of the the buffer being checked. All occurrences of `%t` in command
+  contents of the buffer being checked. All occurrences of `%t` in command
   strings will reference the one temporary file. The temporary file will be
   created inside a temporary directory, and the entire temporary directory
   will be automatically deleted, following the behaviour of
@@ -1364,7 +1467,7 @@ ale#statusline#Status()                               *ale#statusline#Status()*
   %{ale#statusline#Status()}
 
 
-ALELint                                                               *ALELint*
+ALELint                                                       *ALELint-autocmd*
   This |User| autocommand is triggered by ALE every time it completes a lint
   operation. It can be used to update statuslines, send notifications, or
   complete any other operation that needs to be done after a lint run.
